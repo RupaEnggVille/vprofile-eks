@@ -21,7 +21,7 @@ spec:
         - name: vpromc-port
           containerPort: 11211
 
-
+---
 
 apiVersion: v1
 kind: Service
