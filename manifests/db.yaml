@@ -41,7 +41,7 @@ spec:
           persistentVolumeClaim:
             claimName: db-pv-claim
 
-
+---
 
 apiVersion: v1
 kind: Service
