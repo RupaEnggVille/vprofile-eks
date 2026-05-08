@@ -110,26 +110,25 @@ terraform -version
 ## **1.Clone the repository to local: create a empty directory in local .Then clone it**
 
 or 
-## **in vs code-->click on terminal-->new terminal-->select git bash-->change to local directory --> run git clone command-->after cloning finished--->cick on file-->open Folder-->select your cloned repository**
+### **in vs code-->click on terminal-->new terminal-->select git bash-->change to local directory --> run git clone command-->after cloning finished--->click on file-->open Folder-->select your cloned repository**
 ```shell
-git clone https://github.com/RupaEnggVille/PRODUCTION-EKS.git
+git clone https://github.com/RupaEnggVille/vprofile-eks.git
 
-cd PRODUCTION-EKS
+cd vprofile-eks
 ```
 ## **2. Go to Terraform working directory**
 
-Based on your instructions:
+Based on instructions:
 ```shell
-ls
-cd eks-project
 ls
 cd terraform
 ls
 cd eks
 ```
-Make sure this folder contains: main.tf ,eks.tf,vpc.tf,provider.tf,dev.tfvars
+Make sure this folder contains: main.tf, eks.tf, vpc.tf, provider.tf, backend.tf (for storing terraform state if required), dev.tfvars
 
-## **3. Configure AWS CLI (mandatory):** for that go to browser create a IAM user (eks-user) in aws console for this project save access key and secret keys locally
+## **3. Configure AWS CLI (mandatory):** 
+for that navigate to AWS console create an IAM user (eks-user) with admin access for this project & save access key and secret keys locally
 ```shell
 aws configure
 
@@ -138,7 +137,7 @@ Set:
 AWS Access Key : give your access key
 Secret Key  : give your secret key
 Region → us-east-1
-json
+Output format → json
 ```
 ## **4. Create S3 backend bucket (if not already created)**
 
@@ -149,9 +148,9 @@ aws s3 mb s3://your-terraform-state-bucket --region us-east-1
 
 in **backend.tf** change the bucket name 
 
-bucket       = "backend-bucket-final-6526"   #create s3 bucket through aws console .and replace bucket name here
+bucket       = "backend-bucket-final-6526"   #create s3 bucket through aws console and replace bucket name here
 
-Update the region based on your AWS region. in backend block 
+Update the region based on your AWS region in backend block 
 
 
 ### In dev.tfvars 
@@ -164,9 +163,11 @@ Instance type based on your project size
 
 instance_type = "t3.medium"  #change instance type
 
-aws_region                = "us-east-1"   #change region
+aws_region    = "us-east-1"   #change region
 
-instance_types   = ["t3.medium"]  
+Cluster Node Capacity (Min, Max & desired)
+
+Key-pair Name = One you created in AWS Console or Imported to AWS Console which is created locally.
 
 if reguired change 
 
@@ -177,11 +178,16 @@ kubernetes_version        = "1.34" also
 
 Your project uses: check it in ec2.tf file which block you are using
 
+**If you use data block:**
+
 data "aws_key_pair"
 
 So key MUST already exist in AWS.**(create manually through aws console)**
 
-If you use resource "aws_key_pair"
+**If you use resource block:**
+
+resource "aws_key_pair"
+
 Generate through ssh-keygen
 
 ### Step 1: Create local key
@@ -203,7 +209,7 @@ aws ec2 describe-key-pairs --key-names ec2_keypair
 ```shell
 terraform init
 ```  
-This will: download AWS provider ,initialize backend (S3) ,prepare modules
+This will: download AWS provider ,initialize backend (S3) ,prepare modules & other plugins required for the project.
 
 ## **7. Validate configuration**
 ```shell
@@ -211,9 +217,10 @@ terraform validate
 ```
 ## **8. Plan infrastructure**
 ```shell
-terraform plan -var-file="dev.tfvars"    #because all global configuration settings are defined in dev.tfvars. If you run only terraform plan, it will prompt you to enter values manually.”
+terraform plan -var-file="dev.tfvars"    
 ```
-We use dev.tfvars with terraform plan so Terraform already knows all values. If we don’t use it, Terraform will stop and ask us to enter them one by one.
+We use dev.tfvars with terraform plan so Terraform already knows all values. If we don’t use it, Terraform will stop and ask us to enter them one by one. 
+Because, all global configuration settings are defined in dev.tfvars. If you run only terraform plan, it will prompt you to enter values manually.”
 
 ## **9. Apply infrastructure**
 ```shell
@@ -221,21 +228,31 @@ terraform apply -var-file="dev.tfvars"
 
 Type:yes
 ```
-After resource creation completes, verify in the AWS Console that the bastion server, cluster, and VPCs ,IAM Roles are available. The process usually takes 10–15 minutes. Then copy the bastion server’s public IP address and launch a new Git Bash session.
+After resource creation completes, verify in the AWS Console that the bastion server, cluster, and VPC ,IAM Roles are available. The process usually takes 10–15 minutes. Then copy the bastion server’s public IP address and launch a new Git Bash session.
 
+## **10. Post Provisioning (Bastion Access & Kubernetes Setup)**
 
-## **10. Post Deployment (Bastion Access & Kubernetes Setup)**
+Connect to EKS Cluster Via Bastion because cluster is private.
 
-Because cluster is private:SSH into Baston server 
+**Prerequisites for Secure Access to cluster from Bastion:**
+Before starting, ensure the following are installed and configured:
+- Kubernetes Cluster (Amazon EKS)
+- kubectl
+- Helm
+- eksctl
+- AWS CLI
+- IAM permissions for EKS and ELB creation
+
+### **SSH into Baston server **
 ```shell
-ssh -i Downloads/ec2_keypair.pem ubuntu@bastion_public_ip
+ssh -i Downloads/key_pair.pem ubuntu@bastion_public_ip
 ```
 
-(example: ssh -i Downloads/ec2_keypair.pem ubuntu@(bastion_public_ip))
+(example: ssh -i Downloads/test-key.pem ubuntu@(bastion_public_ip))
 
-### **Configure Kubernetes access**
+### **Configure AWS access**
 ```shell
-aws configure    #enter here access keys and secret keys ,region and json
+aws configure    #enter here access keys and secret keys ,region and output format
 
 AWS Access Key : give your saved access key
 
@@ -245,13 +262,19 @@ Region → us-east-1
 
 Output → json
 ```
+
+### **Configure Kubernetes Access (EKS)**
+
+Update kube Config file of EKS cluster to access it from Bastion (Replace region, cluster name)
 ```shell
 aws eks update-kubeconfig --region us-east-1 --name dev-eks-demo
 ```
-**Verify:**
+
+### **Verify EKS Cluster Access:**
 ```shell
 kubectl get nodes
 ```
+
 ## **11. Install Helm (inside bastion)**
 ```shell
 curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
@@ -259,326 +282,183 @@ chmod 700 get_helm.sh
 ./get_helm.sh
 ```
 
+## **12. NGINX Ingress Controller Setup on Amazon EKS (inside bastion)**
+Install an Internet-facing NGINX Ingress Controller on an Amazon EKS cluster using Helm & expose applications using Kubernetes Ingress resources.
 
-
-
-# NGINX Ingress Controller Setup on Amazon EKS
-
-This guide explains how to install an Internet-facing NGINX Ingress Controller on an Amazon EKS cluster using Helm, expose applications using Kubernetes Ingress resources, and clean up the installation when no longer needed.
-
----
-
-# Prerequisites
-
-Before starting, ensure the following are installed and configured:
-
-- Kubernetes Cluster (Amazon EKS)
-- kubectl
-- Helm
-- eksctl
-- AWS CLI
-- IAM permissions for EKS and ELB creation
-
-Verify cluster access:
-
-```bash
-kubectl get nodes
-
-Install NGINX Ingress Controller
-Add Helm Repository
+### **Add Helm Repository**
+```shell
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-Explanation
-
+```
 Adds the official NGINX Ingress Helm chart repository to Helm.
 
-Update Helm Repositories
+### **Update Helm Repositories**
+```shell
 helm repo update
-Explanation
-
+```
 Fetches the latest chart information from configured Helm repositories.
 
-Install Internet-Facing NGINX Ingress Controller
+### **Install Internet-Facing NGINX Ingress Controller**
+```shell
 helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
   --namespace ingress-nginx \
   --create-namespace \
   --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing" \
   --set controller.service.type=LoadBalancer
-Explanation
-
-This command installs the NGINX Ingress Controller and creates an AWS Elastic Load Balancer (ELB).
-
-Parameters
-Parameter	Description
-helm upgrade --install	Installs the chart if not present, otherwise upgrades it
-ingress-nginx	Release name
-ingress-nginx/ingress-nginx	Helm chart name
---namespace ingress-nginx	Installs into ingress-nginx namespace
---create-namespace	Creates namespace if it does not exist
-aws-load-balancer-scheme=internet-facing	Creates a public ELB
-controller.service.type=LoadBalancer	Exposes controller externally
-Verify Installation
-kubectl get svc -n ingress-nginx
-Expected Output
-
-You should see:
-
-ingress-nginx-controller   LoadBalancer   <external-ip>
-
+```
+This command installs the NGINX Ingress Controller and creates an AWS Elastic Load Balancer (ELB) in Console.
 AWS will provision an ELB automatically.
 
-Create Ingress Resource
-
-Example ingress manifest:
-
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: vpro-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: vprofile.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: vproapp-service
-            port:
-              number: 8080
-Apply Ingress
-kubectl apply -f ingress.yaml
-Verify Ingress
-kubectl get ingress
-
-Expected output:
-
-NAME           CLASS   HOSTS                  ADDRESS
-vpro-ingress   nginx   vprofile.example.com  <elb-hostname>
-Configure DNS
-
-Create a DNS CNAME record:
-
-Type	Name	Value
-CNAME	vprofile	ELB hostname
-
-Example:
-
-vprofile.example.com -> abc123.us-east-1.elb.amazonaws.com
-Test Application
-
-Using curl:
-
-curl http://vprofile.example.com
-
-Or open in browser:
-
-http://vprofile.example.com
-Persistent Volume Claim Example
-
-Example PVC manifest:
-
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: db-pv-claim
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: gp2
-  resources:
-    requests:
-      storage: 3Gi
-
-Apply PVC:
-
-kubectl apply -f pvc.yaml
-Verify PVC
-kubectl get pvc
-
-If status remains Pending, ensure:
-
-EBS CSI Driver is installed
-A pod is consuming the PVC
-StorageClass exists
-Install AWS EBS CSI Driver
-eksctl create addon \
-  --name aws-ebs-csi-driver \
-  --cluster <cluster-name> \
-  --force
-
-Verify:
-
-kubectl get pods -n kube-system | grep ebs
-Delete NGINX Ingress Controller
-Remove Helm Release
-helm uninstall ingress-nginx -n ingress-nginx
-Delete Namespace
-kubectl delete namespace ingress-nginx
-Useful Troubleshooting Commands
-Check Ingress
-kubectl describe ingress
-Check Services
-kubectl get svc -A
-Check Storage Classes
-kubectl get sc
-Check Persistent Volumes
-kubectl get pv
-Check PVC Events
-kubectl describe pvc <pvc-name>
-Notes
-NGINX Ingress Controller is different from AWS ALB Ingress Controller.
-Use ingressClassName: nginx for NGINX ingress.
-Do not use alb.ingress.kubernetes.io/* annotations with NGINX Ingress.
-DNS propagation may take several minutes after creating a CNAME record.
-Browser issues are often caused by DNS cache or HTTPS redirects.
-References
-https://kubernetes.github.io/ingress-nginx/
-https://docs.aws.amazon.com/eks/
-https://helm.sh/docs/
-
-
-
-
-
-
-aws configure
-
-aws eks update-kubeconfig --region us-east-1 --name dev-eks-demo
-
-kubectl get nodes
-
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-
-chmod 700 get_helm.sh
-
-./get_helm.sh
-
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-
-helm repo update
-
-helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx   --namespace ingress-nginx   --create-namespace   --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing"   --set controller.service.type=LoadBalancer
-
+### **Verify Installation**
+```shell
 kubectl get ns
-
 kubectl get svc -n ingress-nginx
-
 kubectl get pods --namespace ingress-nginx
-   
 kubectl get pods -n kube-system | grep ebs
+```
 
+## **13. Clone your repository to Bastion Server for Application Deployment**
+```shell
 git clone https://github.com/RupaEnggVille/vprofile-eks.git
 ls
 cd vprofile-eks/
 ls
 cd manifests/
 ls
-   
+```
+This folder contains manifest files to create pvc, ingress, secrets, deployments, services (frontend & backend).
+
+## **14. Deploy Microservice Appication**
+```shell
 kubectl apply -f .
+#apply all at once (or) apply one by one
 
+Kubectl apply -f dbpvc.yaml
+Kubectl apply -f db.yaml
+Kubectl apply -f app.yaml
+Kubectl apply -f mc.yaml
+Kubectl apply -f rmq.yaml
+Kubectl apply -f secret.yaml
+Kubectl apply -f ingress.yaml
+```
+
+### **Verify:**
+```shell
 kubectl get pods
-
 kubectl get deploy
-
 kubectl get svc
-
 kubectl get pvc
-
 kubectl get sc
-
 kubectl get ingress
-
 kubectl describe ingress
-
 kubectl describe ingress vpro-ingress
+```
+## **15. Add CNAME Record in GoDaddy**
 
+Login to your godaddy account --> Domain -->DNS ---> Add New Record -->
+
+Type: CNAME 
+
+Name : vprofile #(Replace with the subdomain mentioned in ingress.yaml)
+
+Value: DNS name of the load balancer created by ingress controller
+
+## **16. Verify**
+
+Wait for some time after creating DNS Record in GoDaddy
+
+### **Verify in Browser:**
+
+Check with the DNS name of the Load Balancer, you will get 404 for nginx controller. 
+
+Ingress Controller will only forward request to the hostname mapped in the domain registrar. Application cannot be accessed using Load Balancer endpoint, can be accessed only with the hostname.
+
+**http://vprofile.enggville.xyz**
+
+Login and check the user list, click on any user the data will be inserted into cache. Go back and click on the user again, the data will be from cache.
+
+### **Verify from Bastion (For Debugging)**
+```shell
 nslookup vprofile.enggville.xyz
-
 dig vprofile.enggville.xyz
-
 curl http://vprofile.enggville.xyz
-
 curl -H "Host: vprofile.enggville.xyz" http://a0cf17efd9d45406aa7c3b1b806d5365-603018940.us-east-1.elb.amazonaws.com
+```
+## **17. HTTPS Setup** (ACM + GoDaddy)  Enable TLS (HTTPS Setup)
+ 
+### **step 1: Request an acm certificate in aws console**
 
+choose Request a public certificate  --> click on next --> Fully qualified domain name : your godaddy domainname (*.enggville.xyz)
+
+click on request
+
+Certificate Status --> pending validation
+
+### **step 2: Add DNS in GoDaddy**
+
+Open godaddy.com  --> Domain -->DNS  ---> Add New Record  -->
+
+Type: CNAME 
+
+Name : Copy CNAME Name upto before .enggville.xyz (.domainname)  from aws console --->Paste it here
+
+value: Copy CNAME value from aws console (completly)  -->paste it here
+
+After completing the above steps, the certificate status in the AWS Console changes from Pending to Issued.
+
+## **18. Enable HTTPS Ingress**
+
+Open ingress.yaml file
+```shell
+vim ingress.yaml
+```
+**Uncomment the following lines**
+```shell
+alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}, {"HTTP": 80}]'
+alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:071325923620:certificate/e6c8ab5f-3dcd-42b6-bbbb-2ff4e2b811fc    #Replace the certificate ARN with your own from AWS Certificate Manager
+alb.ingress.kubernetes.io/ssl-redirect: '443'
+```
+**save the file  (:wq!) & apply ingress**
+```shell
+kubectl apply -f ingress.yaml
+```
+### **Verify HTTPS:**
+Wait for some time for propagating the changes and check in browser with domain name.
+
+https://vprofile.enggville.xyz
+
+You can access the vprofile application with TLS.
+
+## **Process of Deletion:**
+
+### **Step-1: Uninstall Ingress & delete ingress Namespace**
+```shell
 helm uninstall ingress-nginx -n ingress-nginx
-
 kubectl delete namespace ingress-nginx
+
+#verify deletion
 
 kubectl get all -n ingress-nginx
-
 kubectl get svc -A
+```
+AWS Load Balancer will be deleted
 
+### **Step-2: Delete all resources created from manifests**
+```shell
+cd vprofile-eks/manifests/
+kubectl delete -f .
+```
 
+### **Step-3: Delete Infrasture using Terraform** (In VS Code from Git Bash)
+```shell
+terraform destroy -var-file="dev.tfvars"
 
+Type:yes
+```
+This command deletes the entire infrasture that is created by terraform.
 
+### **Step-4: Delete the CNAME Record**
 
-
-history 
-
-aws configure
-
-aws eks update-kubeconfig --region us-east-1 --name dev-eks-demo
-
-kubectl get nodes
-
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.3/deploy/static/provider/aws/deploy.yaml
-
-kubectl annotate svc ingress-nginx-controller -n ingress-nginx service.beta.kubernetes.io/aws-load-balancer-scheme=internet-facing --overwrite
-
-  #kubectl get deployment -n kube-system
-  
-git clone https://github.com/RupaEnggVille/vprofile-eks.git
-
-ls
-
-cd vprofile-eks/
-
-ls
-
-cd manifests/
-
-ls
-
-kubectl apply -f dbpvc.yaml
-
-kubectl apply -f .
-
-kubectl get ingress
-   
-kubectl describe ingress vpro-ingress
-kubectl get svc -A
-
-Debugging:
-  #nslookup vprofile.enggville.xyz
-  #dig vprofile.enggville.xyz
-  #curl -H "Host: vprofile.enggville.xyz" http://k8s-ingressn-ingressn-883463b903-d4c44cbee2c46232.elb.us-east-1.amazonaws.com
-  #kubectl get pods -A | grep ingress
-  #kubectl get svc -A | grep ingress
-  #kubectl get svc vproapp-service
-  #kubectl get endpoints vproapp-service
-  #curl http://vprofile.enggville.xyz
-  #kubectl get svc -n ingress-nginx
-  #kubectl describe ingress vpro-ingress
-  kubectl get pvc
-   
-   kubectl describe pvc
-   
-   kubectl get sc
-
-kubectl get pods -n kube-system | grep ebs
-  Deletion commands:
-
-  kubectl delete svc ingress-nginx-controller -n ingress-nginx
-  
-  kubectl delete pvc db-pv-claim
-   
-  
-
-   kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.1.3/deploy/static/provider/aws/deploy.yaml
+In GoDaddy --> DNS --> Select the CNAME Record created earlier --> Delete --> Confirm
 
    kubectl delete -f .
 
