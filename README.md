@@ -1,5 +1,71 @@
 # vprofile-eks
 
+aws configure
+
+aws eks update-kubeconfig --region us-east-1 --name dev-eks-demo
+
+kubectl get nodes
+
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+
+chmod 700 get_helm.sh
+
+./get_helm.sh
+
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+helm repo update
+
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx   --namespace ingress-nginx   --create-namespace   --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing"   --set controller.service.type=LoadBalancer
+
+kubectl get ns
+
+kubectl get svc -n ingress-nginx
+
+kubectl get pods --namespace ingress-nginx
+   
+kubectl get pods -n kube-system | grep ebs
+
+git clone https://github.com/RupaEnggVille/vprofile-eks.git
+ls
+cd vprofile-eks/
+ls
+cd manifests/
+ls
+   
+kubectl apply -f .
+
+kubectl get pods
+
+kubectl get deploy
+
+kubectl get svc
+
+kubectl get pvc
+
+kubectl get sc
+
+kubectl get ingress
+
+kubectl describe ingress
+
+kubectl describe ingress vpro-ingress
+
+nslookup vprofile.enggville.xyz
+
+dig vprofile.enggville.xyz
+
+curl http://vprofile.enggville.xyz
+
+curl -H "Host: vprofile.enggville.xyz" http://a0cf17efd9d45406aa7c3b1b806d5365-603018940.us-east-1.elb.amazonaws.com
+
+
+
+
+
+
+
+
 history 
 
 aws configure
