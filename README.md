@@ -381,7 +381,7 @@ Login and check the user list, click on any user the data will be inserted into 
 nslookup vprofile.enggville.xyz
 dig vprofile.enggville.xyz
 curl http://vprofile.enggville.xyz
-curl -H "Host: vprofile.enggville.xyz" http://a0cf17efd9d45406aa7c3b1b806d5365-603018940.us-east-1.elb.amazonaws.com
+curl -H "Host: vprofile.enggville.xyz" http://AWS-LB-DNS-Name      #Replace with your LB DNS Name
 ```
 ## **17. HTTPS Setup** (ACM + GoDaddy)  Enable TLS (HTTPS Setup)
  
