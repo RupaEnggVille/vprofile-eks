@@ -1,5 +1,31 @@
 # vprofile-eks
 
+# NGINX Ingress Controller Setup on Amazon EKS
+
+This guide explains how to install an Internet-facing NGINX Ingress Controller on an Amazon EKS cluster using Helm, expose applications using Kubernetes Ingress resources, and clean up the installation when no longer needed.
+
+---
+
+# Prerequisites
+
+Before starting, ensure the following are installed and configured:
+
+- Kubernetes Cluster (Amazon EKS)
+- kubectl
+- Helm
+- eksctl
+- AWS CLI
+- IAM permissions for EKS and ELB creation
+
+Verify cluster access:
+
+```bash
+kubectl get nodes
+
+
+
+
+
 aws configure
 
 aws eks update-kubeconfig --region us-east-1 --name dev-eks-demo
@@ -59,7 +85,13 @@ curl http://vprofile.enggville.xyz
 
 curl -H "Host: vprofile.enggville.xyz" http://a0cf17efd9d45406aa7c3b1b806d5365-603018940.us-east-1.elb.amazonaws.com
 
+helm uninstall ingress-nginx -n ingress-nginx
 
+kubectl delete namespace ingress-nginx
+
+kubectl get all -n ingress-nginx
+
+kubectl get svc -A
 
 
 
