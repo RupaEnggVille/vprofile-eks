@@ -22,6 +22,163 @@ Verify cluster access:
 ```bash
 kubectl get nodes
 
+Install NGINX Ingress Controller
+Add Helm Repository
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+Explanation
+
+Adds the official NGINX Ingress Helm chart repository to Helm.
+
+Update Helm Repositories
+helm repo update
+Explanation
+
+Fetches the latest chart information from configured Helm repositories.
+
+Install Internet-Facing NGINX Ingress Controller
+helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-scheme"="internet-facing" \
+  --set controller.service.type=LoadBalancer
+Explanation
+
+This command installs the NGINX Ingress Controller and creates an AWS Elastic Load Balancer (ELB).
+
+Parameters
+Parameter	Description
+helm upgrade --install	Installs the chart if not present, otherwise upgrades it
+ingress-nginx	Release name
+ingress-nginx/ingress-nginx	Helm chart name
+--namespace ingress-nginx	Installs into ingress-nginx namespace
+--create-namespace	Creates namespace if it does not exist
+aws-load-balancer-scheme=internet-facing	Creates a public ELB
+controller.service.type=LoadBalancer	Exposes controller externally
+Verify Installation
+kubectl get svc -n ingress-nginx
+Expected Output
+
+You should see:
+
+ingress-nginx-controller   LoadBalancer   <external-ip>
+
+AWS will provision an ELB automatically.
+
+Create Ingress Resource
+
+Example ingress manifest:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vpro-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: vprofile.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vproapp-service
+            port:
+              number: 8080
+Apply Ingress
+kubectl apply -f ingress.yaml
+Verify Ingress
+kubectl get ingress
+
+Expected output:
+
+NAME           CLASS   HOSTS                  ADDRESS
+vpro-ingress   nginx   vprofile.example.com  <elb-hostname>
+Configure DNS
+
+Create a DNS CNAME record:
+
+Type	Name	Value
+CNAME	vprofile	ELB hostname
+
+Example:
+
+vprofile.example.com -> abc123.us-east-1.elb.amazonaws.com
+Test Application
+
+Using curl:
+
+curl http://vprofile.example.com
+
+Or open in browser:
+
+http://vprofile.example.com
+Persistent Volume Claim Example
+
+Example PVC manifest:
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp2
+  resources:
+    requests:
+      storage: 3Gi
+
+Apply PVC:
+
+kubectl apply -f pvc.yaml
+Verify PVC
+kubectl get pvc
+
+If status remains Pending, ensure:
+
+EBS CSI Driver is installed
+A pod is consuming the PVC
+StorageClass exists
+Install AWS EBS CSI Driver
+eksctl create addon \
+  --name aws-ebs-csi-driver \
+  --cluster <cluster-name> \
+  --force
+
+Verify:
+
+kubectl get pods -n kube-system | grep ebs
+Delete NGINX Ingress Controller
+Remove Helm Release
+helm uninstall ingress-nginx -n ingress-nginx
+Delete Namespace
+kubectl delete namespace ingress-nginx
+Useful Troubleshooting Commands
+Check Ingress
+kubectl describe ingress
+Check Services
+kubectl get svc -A
+Check Storage Classes
+kubectl get sc
+Check Persistent Volumes
+kubectl get pv
+Check PVC Events
+kubectl describe pvc <pvc-name>
+Notes
+NGINX Ingress Controller is different from AWS ALB Ingress Controller.
+Use ingressClassName: nginx for NGINX ingress.
+Do not use alb.ingress.kubernetes.io/* annotations with NGINX Ingress.
+DNS propagation may take several minutes after creating a CNAME record.
+Browser issues are often caused by DNS cache or HTTPS redirects.
+References
+https://kubernetes.github.io/ingress-nginx/
+https://docs.aws.amazon.com/eks/
+https://helm.sh/docs/
+
+
 
 
 
