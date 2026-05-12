@@ -26,6 +26,8 @@ Core AWS Services Used
 
 <img src="./images/vpc.png">
 <img src="./images/eks.png">
+<img src="./images/Architecture.png">
+<img src="./images/TrafficFlow.png">
 
 ## Infrastructure Provisioned with Terraform
 ### Networking (Custom VPC)
