@@ -430,6 +430,18 @@ https://vprofile.enggville.xyz
 
 You can access the vprofile application with TLS.
 
+
+**Deletion commands for nginx service & PVC (use only if facing any issue)**
+```shell
+kubectl delete svc ingress-nginx-controller -n ingress-nginx
+kubectl delete pvc db-pv-claim
+```
+
+**Restart Deployment for Nginx Service**
+```shell
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
+```
+
 ## **Process of Deletion:**
 
 ### **Step-1: Uninstall Ingress & delete ingress Namespace**
